@@ -284,6 +284,47 @@ int patchEC(std::string &ec)
 	
 	return 0;
 }
+
+int patchAPCB(std::string &apcb)
+{
+	std::string samsung_memory_spd = "2311130E8621951800400000020200000000030F92540500AA0090A890C008600400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000E7C100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004B334C4B374B3730424D2D4247435030303020200080CE0B000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012345678";
+
+	size_t spd1 = FindPattern(apcb, samsung_memory_spd, 0);
+	if (spd1 == std::string::npos)
+	{
+		printf("spd1 not found!\n");
+		return -1;
+	}
+	apcb[spd1+0x6] = 0xB5;
+	apcb[spd1+0xC] = 0x0A;
+
+	size_t spd2 = FindPattern(apcb, samsung_memory_spd, 0);
+	if (spd2 == std::string::npos)
+	{
+		printf("spd2 not found!\n");
+		return -1;
+	}
+	apcb[spd2+0x6] = 0xB5;
+	apcb[spd2+0xC] = 0x0A;
+
+	size_t spd3 = FindPattern(apcb, samsung_memory_spd, 0);
+	if (spd3 == std::string::npos)
+	{
+		printf("spd3 not found!\n");
+		return -1;
+	}
+	apcb[spd3+0x6] = 0xB5;
+	apcb[spd3+0xC] = 0x0A;
+
+	apcb[0x10] = 0;
+	uint8_t sum = 0;
+	for (int i = 0; i < apcb.size(); i++)
+		sum += apcb[i];
+	apcb[0x10] = -sum;
+
+	return 0;
+}
+
 int main(int argc, char ** argv)
 {
 	std::string bios;
@@ -297,16 +338,34 @@ int main(int argc, char ** argv)
 	fclose(f);
 }
 
-	std::string ec1 = bios.substr(0, 0x20000);
-	std::string ec2 = bios.substr(0x40000, 0x20000);
-		
-	if(patchEC(ec1) != 0)
-		return -1;
-	if(patchEC(ec2) != 0)
-		return -1;
+	if (argv[3][0] == 'Y')
+	{
+		std::string ec1 = bios.substr(0, 0x20000);
+		std::string ec2 = bios.substr(0x40000, 0x20000);
+			
+		if(patchEC(ec1) != 0)
+			return -1;
+		if(patchEC(ec2) != 0)
+			return -1;
 
-	memcpy(bios.data(), ec1.data(), ec1.size());
-	memcpy(&bios.data()[0x40000], ec2.data(), ec2.size());
+		memcpy(bios.data(), ec1.data(), ec1.size());
+		memcpy(&bios.data()[0x40000], ec2.data(), ec2.size());
+	}
+
+	if (argv[4][0] == 'Y')
+	{
+		std::string apcb1 = bios.substr(0x285000, *(uint32_t *) &bios[0x285000 + 8]);
+		std::string apcb2 = bios.substr(0xA85000, *(uint32_t *) &bios[0xA85000 + 8]);
+
+		if(patchAPCB(apcb1) != 0)
+			return -1;
+
+		if(patchAPCB(apcb2) != 0)
+			return -1;
+
+		memcpy(&bios.data()[0x285000], apcb1.data(), apcb1.size());
+		memcpy(&bios.data()[0xA85000], apcb2.data(), apcb2.size());
+	}
 
 	size_t offset = FindPattern(bios, "24 42 56 44 54 24", 22);
 	if (offset == std::string::npos)
@@ -325,8 +384,22 @@ int main(int argc, char ** argv)
 	offset2 += offset;
 	while (bios[offset2] != 0)
 		offset2++;
-	memcpy(&bios[offset-1], " DeckHD", 7);
-	memcpy(&bios[offset2-1], " DeckHD", 7);
+
+	if (argv[3][0] == 'Y' && argv[4][0] == 'Y')
+	{
+		memcpy(&bios[offset-1], " DeckHD 32GB", 11);
+		memcpy(&bios[offset2-1], " DeckHD 32GB", 11);
+	}
+	else if (argv[4][0] == 'Y')
+	{
+		memcpy(&bios[offset-1], " 32GB", 5);
+		memcpy(&bios[offset2-1], " 32GB", 5);
+	}
+	else
+	{
+		memcpy(&bios[offset-1], " DeckHD", 7);
+		memcpy(&bios[offset2-1], " DeckHD", 7);
+	}
 
 {
 	FILE *f = fopen(argv[2], "wb");

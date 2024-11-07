@@ -24,10 +24,32 @@ then
     echo "FAILED!!!"
     exit -1
 fi
-./patcher BIOSIMG_SPLASH.bin ${biosver}_DeckHD.bin
+
+mkdir out 2> /dev/null
+
+# DeckHD
+./patcher BIOSIMG_SPLASH.bin out/${biosver}_DeckHD.bin Y N
 if [ $? -ne 0 ]
 then
     echo "FAILED!!!"
     exit -1
 fi
+
+# 32GB
+./patcher BIOSIMG.bin out/${biosver}_32GB.bin N Y
+if [ $? -ne 0 ]
+then
+    echo "FAILED!!!"
+    exit -1
+fi
+
+# DeckHD 32GB
+./patcher BIOSIMG_SPLASH.bin out/${biosver}_DeckHD_32GB.bin Y Y
+if [ $? -ne 0 ]
+then
+    echo "FAILED!!!"
+    exit -1
+fi
+
+# cleanup
 rm BIOSIMG.bin BIOSIMG_SPLASH.bin
